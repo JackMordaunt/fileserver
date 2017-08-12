@@ -7,6 +7,7 @@ import (
 
 	"path/filepath"
 
+	"github.com/gin-gonic/gin"
 	"github.com/mkideal/cli"
 )
 
@@ -35,13 +36,19 @@ func main() {
 		}
 		dir = a.Dir
 		if dir == "" {
-			dir = "."
+			a, err := filepath.Abs(".")
+			if err != nil {
+				fatalf("Could not find current directory: %v", err)
+			}
+			dir = a
 		}
 		return nil
 	})
 	printf("Serving files on %s:%d from %q\n", host, port, mustAbs(dir))
-	server := http.FileServer(http.Dir(dir))
-	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), server); err != nil {
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.Default()
+	r.StaticFS("./", http.FileSystem(http.Dir(dir)))
+	if err := r.Run(fmt.Sprintf("%s:%d", host, port)); err != nil {
 		fatalf("Error occured while serving files: %v", err)
 	}
 }
