@@ -54,7 +54,7 @@ func main() {
 	}
 	printf("Serving on:\n")
 	for _, ip := range addrs {
-		printf("-> %s\n", ip.String())
+		printf("-> %s:%d\n", ip.String(), port)
 	}
 	printf("\n")
 	gin.SetMode(gin.ReleaseMode)
