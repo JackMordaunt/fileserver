@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
@@ -9,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mkideal/cli"
+	"github.com/pkg/errors"
+	"github.com/sanity-io/litter"
 )
 
 type args struct {
@@ -44,13 +47,49 @@ func main() {
 		}
 		return nil
 	})
-	printf("Serving files on %s:%d from %q\n", host, port, mustAbs(dir))
+	printf("Serving files from %q,\n", mustAbs(dir))
+	addrs, err := ListAddress()
+	if err != nil {
+		fatalf("Error occured %v", err)
+	}
+	printf("Serving on:\n")
+	for _, ip := range addrs {
+		printf("-> %s\n", ip.String())
+	}
+	printf("\n")
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.StaticFS("./", http.FileSystem(http.Dir(dir)))
 	if err := r.Run(fmt.Sprintf("%s:%d", host, port)); err != nil {
 		fatalf("Error occured while serving files: %v", err)
 	}
+}
+
+// ListAddress returns a list of ip addresses found across all network
+// interfaces.
+func ListAddress() ([]net.IP, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, errors.Wrap(err, "reading network interfaces")
+	}
+	ret := []net.IP{}
+	for _, i := range ifaces {
+		addresses, err := i.Addrs()
+		if err != nil {
+			return nil, errors.Wrapf(err, "reading ip address of %v", litter.Sdump(i))
+		}
+		for _, addr := range addresses {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			ret = append(ret, ip)
+		}
+	}
+	return ret, nil
 }
 
 func mustAbs(relpath string) string {
